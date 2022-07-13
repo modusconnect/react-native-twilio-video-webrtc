@@ -103,7 +103,6 @@ import com.twilio.video.VideoDimensions;
 import com.twilio.video.VideoFormat;
 import com.twilio.video.VideoTrack;
 import com.twilio.video.Vp8Codec;
-import com.twiliorn.library.stethoscope.StethoscopeDevice;
 import com.twiliorn.library.utils.CustomAudioDevice;
 import com.twiliorn.library.utils.SafePromise;
 import com.twiliorn.library.sinks.SnapshotVideoSink;
@@ -138,7 +137,6 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
     private boolean isVideoEnabled = false;
     private boolean dominantSpeakerEnabled = false;
     private boolean enableH264Codec = false;
-    private static StethoscopeDevice stethoscopeDevice;
     private static CustomAudioDevice customAudioDevice;
     private boolean maintainVideoTrackInBackground = false;
 
@@ -327,13 +325,13 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
         super(context);
         this.themedReactContext = context;
 
-
-        stethoscopeDevice = new StethoscopeDevice(themedReactContext);
-
         this.eventEmitter = themedReactContext.getJSModule(RCTEventEmitter.class);
 
         // add lifecycle for onResume and on onPause
         themedReactContext.addLifecycleEventListener(this);
+
+        Video.setAudioDevice(CustomTwilioVideoView.customAudioDevice);
+
 
         /*
          * Needed for setting/abandoning audio focus during call
@@ -345,6 +343,7 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
         // Create the local data track
         // localDataTrack = LocalDataTrack.create(this);
         localDataTrack = LocalDataTrack.create(getContext());
+
 
         // Start the thread where data messages are received
         dataTrackMessageThread.start();
@@ -545,7 +544,27 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
 
     public void releaseResource() {
         themedReactContext.removeLifecycleEventListener(this);
+
+        /*
+         * Always disconnect from the room before leaving the Activity to
+         * ensure any memory allocated to the Room resource is freed.
+         */
+        if (room != null && room.getState() != Room.State.DISCONNECTED) {
+            room.disconnect();
+            disconnectedFromOnDestroy = true;
+        }
         room = null;
+
+        LocalVideoTrack[] cLocalTracks = localVideoTracks.toArray(new LocalVideoTrack[0]);
+        for (LocalVideoTrack track : cLocalTracks) {
+            releaseLocalVideoIfExistsByTrackId(track.getName());
+        }
+
+        if (localAudioTrack != null) {
+            localAudioTrack.release();
+            audioManager.stopBluetoothSco();
+            localAudioTrack = null;
+        }
         localVideoTrack = null;
         thumbnailVideoView = null;
         cameraCapturer = null;
@@ -1645,42 +1664,19 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
         return videoTrack;
     }
 
-    public static void startStethoscope(SafePromise<String> promise) {
+
+    public static void streamDefaultMic(SafePromise promise) {
         if (CustomTwilioVideoView.customAudioDevice == null) {
             Log.d(TAG, "customAudioDevice is null");
             promise.reject("-1", "customAudioDevice is null");
             return;
         }
 
-        if (CustomTwilioVideoView.stethoscopeDevice == null) {
-            Log.d(TAG, "stethoscopeDevice is null");
-            promise.reject("-1", "stethoscopeDevice is null");
-            return;
-        }
-
-        CustomTwilioVideoView.stethoscopeDevice.start(promise);
-        CustomTwilioVideoView.customAudioDevice.switchInputToFile();
+        CustomTwilioVideoView.customAudioDevice.switchInputToMic(promise);
     }
 
-    public static void stopStethoscope(SafePromise promise) {
-        if (CustomTwilioVideoView.customAudioDevice == null) {
-            Log.d(TAG, "customAudioDevice is null");
-            promise.reject("-1", "customAudioDevice is null");
-            return;
-        }
-
-        if (CustomTwilioVideoView.stethoscopeDevice == null) {
-            Log.d(TAG, "stethoscopeDevice is null");
-            promise.reject("-1", "stethoscopeDevice is null");
-            return;
-        }
-
-        CustomTwilioVideoView.customAudioDevice.switchInputToMic();
-        CustomTwilioVideoView.stethoscopeDevice.stop(promise);
-    }
-
-    public static void stethoscopeRecordToFile(String path, int timeout, SafePromise<String> promise) {
-        CustomTwilioVideoView.stethoscopeDevice.recordToFile(path, timeout, promise);
+    public static void streamAudioFile(String path, SafePromise promise) {
+        CustomTwilioVideoView.customAudioDevice.switchInputToFile(path, promise);
     }
 
     public static CustomAudioDevice getCustomAudioDevice() {
@@ -1691,11 +1687,4 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
         CustomTwilioVideoView.customAudioDevice = audioDevice;
     }
 
-    public static void setStethoscopeDevice(StethoscopeDevice stethoscopeDevice) {
-        CustomTwilioVideoView.stethoscopeDevice = stethoscopeDevice;
-    }
-
-    public static StethoscopeDevice getStethoscopeDevice() {
-        return CustomTwilioVideoView.stethoscopeDevice;
-    }
 }

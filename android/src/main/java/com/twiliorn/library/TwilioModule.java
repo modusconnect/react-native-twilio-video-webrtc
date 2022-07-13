@@ -16,7 +16,6 @@ import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.WritableArray;
 import com.facebook.react.module.annotations.ReactModule;
-import com.twiliorn.library.stethoscope.StethoscopeDevice;
 import com.twiliorn.library.utils.CustomAudioDevice;
 import com.twiliorn.library.utils.SafePromise;
 
@@ -43,10 +42,6 @@ public class TwilioModule extends ReactContextBaseJavaModule {
             CustomTwilioVideoView.setCustomAudioDevice(new CustomAudioDevice(context));
         }
 
-        if (CustomTwilioVideoView.getStethoscopeDevice() == null) {
-            Log.d(TAG, "stethoscopeDevice is null - Initializing new get stethoscope device");
-            CustomTwilioVideoView.setStethoscopeDevice(new StethoscopeDevice(context));
-        }
     }
 
     @ReactMethod
@@ -82,24 +77,15 @@ public class TwilioModule extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
-    public void stethoscopeRecordToFile(String path, Integer timeout, Promise promise) {
-        SafePromise<String> stringSafePromise = new SafePromise(promise);
-        if (timeout == null) {
-            CustomTwilioVideoView.stethoscopeRecordToFile(path, 20, stringSafePromise);
-            return;
-        }
-        CustomTwilioVideoView.stethoscopeRecordToFile(path, timeout, stringSafePromise);
-    }
-
-    @ReactMethod
-    public void startStethoscope(Promise promise) {
-        SafePromise<String> stringSafePromise = new SafePromise(promise);
-        CustomTwilioVideoView.startStethoscope(stringSafePromise);
-    }
-
-    @ReactMethod
-    public void stopStethoscope(Promise promise) {
+    public void streamAudioFile(String path, Promise promise) {
         SafePromise safePromise = new SafePromise(promise);
-        CustomTwilioVideoView.stopStethoscope(safePromise);
+
+        CustomTwilioVideoView.streamAudioFile(path, safePromise);
+    }
+
+    @ReactMethod
+    public void streamDefaultMic(Promise promise) {
+        SafePromise safePromise = new SafePromise(promise);
+        CustomTwilioVideoView.streamDefaultMic(safePromise);
     }
 }

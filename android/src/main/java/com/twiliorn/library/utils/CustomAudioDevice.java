@@ -82,25 +82,28 @@ public class CustomAudioDevice implements AudioDevice {
         utils = new CustomPathUtils(context);
     }
 
-    public void switchInputToFile() {
+    public void switchInputToFile(String path, SafePromise promise) {
         if (capturerHandler == null) {
             Log.d(TAG, "CapturerHandler is null - noop");
             return;
         }
         isFilePlaying = true;
-        initializeStreams();
+        initializeStreams(path);
         capturerHandler.removeCallbacks(microphoneCapturerRunnable);
         stopRecording();
         capturerHandler.post(fileCapturerRunnable);
+        promise.resolve(null);
     }
 
-    public void switchInputToMic() {
+    public void switchInputToMic(SafePromise promise) {
         if (capturerHandler == null) {
             Log.d(TAG, "CapturerHandler is null - noop");
             return;
         }
         capturerHandler.removeCallbacks(fileCapturerRunnable);
         capturerHandler.post(microphoneCapturerRunnable);
+        promise.resolve(null);
+
     }
 
 
@@ -236,8 +239,7 @@ public class CustomAudioDevice implements AudioDevice {
     }
 
 
-    private void initializeStreams() {
-        String path = utils.getStethoscopePipePath();
+    private void initializeStreams(String path) {
         File cfile = new File(path);
         try {
             inputStream = new FileInputStream(cfile);
