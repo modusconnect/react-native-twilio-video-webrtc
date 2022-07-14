@@ -48,8 +48,6 @@ public class CustomAudioDevice implements AudioDevice {
 
     private static final int BUFFERS_PER_SECOND = 1000 / CALLBACK_BUFFER_SIZE_MS;
 
-    private final CustomPathUtils utils;
-
     // Average number of callbacks per second.
     private InputStream inputStream;
     private DataInputStream dataInputStream;
@@ -79,7 +77,6 @@ public class CustomAudioDevice implements AudioDevice {
     private boolean isFilePlaying;
 
     public CustomAudioDevice(Context context) {
-        utils = new CustomPathUtils(context);
     }
 
     public void switchInputToFile(String path, SafePromise promise) {
@@ -87,8 +84,11 @@ public class CustomAudioDevice implements AudioDevice {
             Log.d(TAG, "CapturerHandler is null - noop");
             return;
         }
+        if(!initializeStreams(path)) {
+            promise.reject("-1", "Could not initialize stream");
+            return;
+        }
         isFilePlaying = true;
-        initializeStreams(path);
         capturerHandler.removeCallbacks(microphoneCapturerRunnable);
         stopRecording();
         capturerHandler.post(fileCapturerRunnable);
@@ -145,7 +145,7 @@ public class CustomAudioDevice implements AudioDevice {
         capturerThread.start();
         // Create the capturer handler that processes the capturer Runnables.
         capturerHandler = new Handler(capturerThread.getLooper());
-        isFilePlaying = true;
+        isFilePlaying = false;
         capturerHandler.post(microphoneCapturerRunnable);
         return true;
     }
@@ -239,19 +239,36 @@ public class CustomAudioDevice implements AudioDevice {
     }
 
 
-    private void initializeStreams(String path) {
-        File cfile = new File(path);
+    private boolean initializeStreams(String path) {
         try {
+            if(path == null) {
+                Log.d(TAG, "path is null");
+                return false;
+            }
+
+            File cfile = new File(path);
+            if(cfile.exists() && cfile.canRead()) {
+                Log.d(TAG, "cFile invalid - exists "
+                        + (cfile.exists() ? "T" : "F")
+                        + " readable " + (cfile.canRead() ? "T" : "F")
+                );
+
+                Log.d(TAG, "cFile path:  " + path);
+                return false;
+            }
             inputStream = new FileInputStream(cfile);
             dataInputStream = new DataInputStream(inputStream);
             int bytes = dataInputStream.skipBytes(WAV_FILE_HEADER_SIZE);
 
             Log.d(TAG, "Number of bytes skipped: " + bytes);
+            return true;
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
         }
+
+        return false;
     }
 
     private void closeStreams() {
