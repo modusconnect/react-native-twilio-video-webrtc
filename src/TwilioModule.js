@@ -26,8 +26,8 @@ class TwilioModule {
   static streamAudioFile = async (path) =>
     await RNTwilioModule.streamAudioFile(path);
 
-  static streamAudioFile = async (path) =>
-    await RNTwilioModule.streamDefaultMic(path);
+  static streamDefaultMic = async (path) =>
+    await RNTwilioModule.streamDefaultMic();
 }
 
 export default TwilioModule;
