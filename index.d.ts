@@ -191,8 +191,6 @@ declare module "react-native-twilio-video-webrtc" {
     TwilioVideoLocalView,
     TwilioVideoParticipantView,
     TwilioVideo,
-    TwilioVideoLocalView2,
-    TwilioVideoLocalView3,
     TwilioModule,
   };
 }
