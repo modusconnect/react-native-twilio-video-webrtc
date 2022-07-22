@@ -20,12 +20,14 @@ import com.twilio.video.AudioFormat;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.DataInputStream;
+import java.io.EOFException;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 
 import tvi.webrtc.ThreadUtils;
 
@@ -51,7 +53,7 @@ public class CustomAudioDevice implements AudioDevice {
     private final CustomPathUtils utils;
 
     // Average number of callbacks per second.
-    private InputStream inputStream;
+    private FileInputStream inputStream;
     private DataInputStream dataInputStream;
 
     // buffers
@@ -88,9 +90,11 @@ public class CustomAudioDevice implements AudioDevice {
             return;
         }
         isFilePlaying = true;
-        initializeStreams(path);
         capturerHandler.removeCallbacks(microphoneCapturerRunnable);
+        capturerHandler.removeCallbacks(fileCapturerRunnable);
         stopRecording();
+        initializeStreams(path);
+
         capturerHandler.post(fileCapturerRunnable);
         promise.resolve(null);
     }
@@ -173,7 +177,7 @@ public class CustomAudioDevice implements AudioDevice {
 
     @Override
     public AudioFormat getRendererFormat() {
-        return new AudioFormat(AudioFormat.AUDIO_SAMPLE_RATE_44100,
+        return new AudioFormat(AudioFormat.AUDIO_SAMPLE_RATE_48000,
                 AudioFormat.AUDIO_SAMPLE_MONO);
     }
 
@@ -231,6 +235,10 @@ public class CustomAudioDevice implements AudioDevice {
         bb.flip();
     }
 
+    private void flush (ByteBuffer bb) {
+        Arrays.fill(bb.array(), (byte) 0);
+    }
+
     private int write(AudioTrack audioTrack, ByteBuffer byteBuffer, int sizeInBytes) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             return audioTrack.write(byteBuffer, sizeInBytes, AudioTrack.WRITE_BLOCKING);
@@ -243,10 +251,7 @@ public class CustomAudioDevice implements AudioDevice {
         File cfile = new File(path);
         try {
             inputStream = new FileInputStream(cfile);
-            dataInputStream = new DataInputStream(inputStream);
-            int bytes = dataInputStream.skipBytes(WAV_FILE_HEADER_SIZE);
-
-            Log.d(TAG, "Number of bytes skipped: " + bytes);
+//            skipFully(inputStream, WAV_FILE_HEADER_SIZE);
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         } catch (IOException e) {
@@ -278,6 +283,18 @@ public class CustomAudioDevice implements AudioDevice {
         }
     }
 
+
+    public void stopRecording(SafePromise promise) {
+        Log.d(TAG, "Remove any pending posts of microphoneCapturerRunnable that are in the message queue ");
+        capturerHandler.removeCallbacks(microphoneCapturerRunnable);
+        try {
+            audioRecord.stop();
+            promise.resolve(null);
+        } catch (IllegalStateException e) {
+            Log.e(TAG, "AudioRecord.stop failed: " + e.getMessage());
+            promise.reject(e);
+        }
+    }
 
     private int outChannelCountToConfiguration(int channels) {
         if (channels == 1)
@@ -320,26 +337,29 @@ public class CustomAudioDevice implements AudioDevice {
         @Override
         public void run() {
             Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO);
-            int bytesRead = 0;
             try {
-                if (dataInputStream == null) {
+                if (inputStream == null) {
                     capturerHandler.postDelayed(this, CALLBACK_BUFFER_SIZE_MS);
                     return;
                 }
+                flush(fileWriteByteBuffer);
 
-                bytesRead = dataInputStream.read(fileWriteByteBuffer.array(), 0, writeBufferSize);
-                if (bytesRead > -1) {
-                    if (bytesRead == fileWriteByteBuffer.capacity()) {
-                        AudioDevice.audioDeviceWriteCaptureData(capturingAudioDeviceContext,
-                                fileWriteByteBuffer
-                        );
-                    } else {
-                        processRemaining(fileWriteByteBuffer, fileWriteByteBuffer.capacity());
-                        AudioDevice.audioDeviceWriteCaptureData(capturingAudioDeviceContext,
-                                fileWriteByteBuffer
-                        );
-                    }
+                boolean retV = readFully(
+                        inputStream,
+                        fileWriteByteBuffer.array(),
+                        fileWriteByteBuffer.arrayOffset(),
+                        writeBufferSize);
+
+//                logger.write(fileWriteByteBuffer);
+
+                if(!retV) {
+                    flush(fileWriteByteBuffer);
+                    return;
                 }
+                AudioDevice.audioDeviceWriteCaptureData(
+                        capturingAudioDeviceContext,
+                        fileWriteByteBuffer
+                );
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -412,5 +432,28 @@ public class CustomAudioDevice implements AudioDevice {
         }
     };
 
+    private boolean readFully(FileInputStream in, byte b[], int off, int len) throws IOException {
+        if (len < 0)
+            throw new IndexOutOfBoundsException();
+        int n = 0;
+        while (n < len) {
+            int count = in.read(b, off + n, len - n);
+            if (count < 0) {
+                return false;
+            }
+            n += count;
+        }
+        return true;
+    }
+
+
+    private void skipFully(FileInputStream in, long skip) throws IOException {
+        int n = 0;
+        while (n < skip) {
+            long bytes = in.skip(skip - n);
+            n += bytes;
+            Log.d(TAG, "[skipFully]: Number of bytes skipped: " + bytes);
+        }
+    }
 
 }

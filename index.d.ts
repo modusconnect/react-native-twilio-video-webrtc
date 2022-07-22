@@ -185,6 +185,7 @@ declare module "react-native-twilio-video-webrtc" {
     static getAvailableCameras: () => Promise<string[]>;
     static streamAudioFile: (path: String) => Promise<void>;
     static streamDefaultMic: () => Promise<void>;
+    static stopMicRecording: () => Promise<void>;
   }
 
   export {

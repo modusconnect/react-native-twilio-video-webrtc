@@ -1676,14 +1676,29 @@ public class CustomTwilioVideoView extends View implements LifecycleEventListene
     }
 
     public static void streamAudioFile(String path, SafePromise promise) {
+        if (CustomTwilioVideoView.customAudioDevice == null) {
+            Log.d(TAG, "customAudioDevice is null");
+            promise.reject("-1", "customAudioDevice is null");
+            return;
+        }
+
         CustomTwilioVideoView.customAudioDevice.switchInputToFile(path, promise);
+    }
+
+    public static void stopMicRecording(SafePromise promise) {
+        if (CustomTwilioVideoView.customAudioDevice == null) {
+            Log.d(TAG, "customAudioDevice is null");
+            promise.reject("-1", "customAudioDevice is null");
+            return;
+        }
+        CustomTwilioVideoView.stopMicRecording(promise);
     }
 
     public static CustomAudioDevice getCustomAudioDevice() {
         return CustomTwilioVideoView.customAudioDevice;
     }
 
-    public static void setCustomAudioDevice(CustomAudioDevice audioDevice) {
+    public static void setCustomAudioDevice(@NonNull() CustomAudioDevice audioDevice) {
         CustomTwilioVideoView.customAudioDevice = audioDevice;
     }
 
