@@ -415,22 +415,65 @@ public class CustomAudioDevice implements AudioDevice {
                 releaseAudioResources();
             }
             while (keepAliveRendererRunnable) {
-                // Get 10ms of PCM data from the SDK. Audio data is written into the ByteBuffer provided.
-                AudioDevice.audioDeviceReadRenderData(renderingAudioDeviceContext, readByteBuffer);
-                int bytesWritten = write(audioTrack, readByteBuffer, readByteBuffer.capacity());
-                if (bytesWritten != readByteBuffer.capacity()) {
-                    Log.e(TAG, "AudioTrack.write failed: " + bytesWritten);
-                    if (bytesWritten == AudioTrack.ERROR_INVALID_OPERATION) {
-                        keepAliveRendererRunnable = false;
-                        break;
+                try {
+                    // Get 10ms of PCM data from the SDK. Audio data is written into the ByteBuffer provided.
+                    AudioDevice.audioDeviceReadRenderData(renderingAudioDeviceContext, readByteBuffer);
+                    int bytesWritten = write(audioTrack, readByteBuffer, readByteBuffer.capacity());
+                    if (bytesWritten != readByteBuffer.capacity()) {
+                        Log.e(TAG, "AudioTrack.write failed: " + bytesWritten);
+                        if (bytesWritten == AudioTrack.ERROR_INVALID_OPERATION) {
+                            keepAliveRendererRunnable = false;
+                            break;
+                        }
                     }
+                    // The byte buffer must be rewinded since byteBuffer.position() is increased at each
+                    // call to AudioTrack.write(). If we don't do this, will fail the next  AudioTrack.write().
+                    readByteBuffer.rewind();
+                } catch (Exception e) {
+                    Log.d(TAG, "audioTrack playState: " + getPlayStateString(audioTrack));
+                    Log.d(TAG, "audioTrack state: " + getStateString(audioTrack));
+                    Log.d(TAG, "audioTrack bufferSize " + audioTrack.getBufferSizeInFrames());
+                    Log.d(TAG, "audioTrack bufferSize " + audioTrack.getBufferCapacityInFrames());
+                    Log.d(TAG, "readByteBuffer capacity " + readByteBuffer.capacity());
+                    Log.d(TAG, "readByteBuffer array length " + readByteBuffer.array().length);
+                    e.printStackTrace();
+                    return;
                 }
-                // The byte buffer must be rewinded since byteBuffer.position() is increased at each
-                // call to AudioTrack.write(). If we don't do this, will fail the next  AudioTrack.write().
-                readByteBuffer.rewind();
             }
         }
     };
+
+    private String getPlayStateString(AudioTrack audioTrack) {
+        int playState = audioTrack.getPlayState();
+        if( playState == AudioTrack.PLAYSTATE_PAUSED) {
+            return "PLAYSTATE_PAUSED";
+        }
+        if(playState == AudioTrack.PLAYSTATE_PLAYING) {
+            return "PLAYSTATE_PLAYING";
+        }
+
+        if(playState == AudioTrack.PLAYSTATE_STOPPED) {
+            return "PLAYSTATE_STOPPED";
+        }
+
+        return "Unknown State";
+    }
+
+    private String getStateString(AudioTrack audioTrack) {
+        int state = audioTrack.getState();
+        if( state == AudioTrack.STATE_INITIALIZED) {
+            return "STATE_INITIALIZED";
+        }
+        if(state == AudioTrack.STATE_NO_STATIC_DATA) {
+            return "STATE_NO_STATIC_DATA";
+        }
+
+        if(state == AudioTrack.STATE_UNINITIALIZED) {
+            return "STATE_UNINITIALIZED";
+        }
+
+        return "Unknown State";
+    }
 
     private boolean readFully(FileInputStream in, byte b[], int off, int len) throws IOException {
         if (len < 0)
