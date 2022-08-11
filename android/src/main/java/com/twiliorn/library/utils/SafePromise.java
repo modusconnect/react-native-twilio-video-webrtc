@@ -1,6 +1,5 @@
 package com.twiliorn.library.utils;
 
-
 import androidx.annotation.Nullable;
 
 import com.facebook.react.bridge.Promise;
