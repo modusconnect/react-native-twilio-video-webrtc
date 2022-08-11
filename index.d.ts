@@ -183,16 +183,15 @@ declare module "react-native-twilio-video-webrtc" {
   class TwilioModule {
     static getPreloadTracks: () => Promise<string[]>;
     static getAvailableCameras: () => Promise<string[]>;
-    static streamAudioFile = () => Promise<void>;
+    static streamAudioFile: (path: String) => Promise<void>;
     static streamDefaultMic: () => Promise<void>;
+    static stopMicRecording: () => Promise<void>;
   }
 
   export {
     TwilioVideoLocalView,
     TwilioVideoParticipantView,
     TwilioVideo,
-    TwilioVideoLocalView2,
-    TwilioVideoLocalView3,
     TwilioModule,
   };
 }

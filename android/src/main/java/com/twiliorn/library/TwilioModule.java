@@ -88,4 +88,10 @@ public class TwilioModule extends ReactContextBaseJavaModule {
         SafePromise safePromise = new SafePromise(promise);
         CustomTwilioVideoView.streamDefaultMic(safePromise);
     }
+
+    @ReactMethod
+    public void stopMicRecording(Promise promise) {
+        SafePromise safePromise = new SafePromise(promise);
+        CustomTwilioVideoView.stopMicRecording(safePromise);
+    }
 }
