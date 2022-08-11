@@ -10,8 +10,8 @@ import android.media.AudioManager;
 import android.media.AudioAttributes;
 import android.media.AudioAttributes.Builder;
 import android.annotation.TargetApi;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
+import androidx.support.annotation.NonNull;
+import androidx.support.annotation.Nullable;
 
 import com.twilio.video.AudioDevice;
 import com.twilio.video.AudioDeviceContext;
