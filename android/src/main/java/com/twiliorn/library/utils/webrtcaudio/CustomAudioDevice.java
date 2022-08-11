@@ -58,7 +58,7 @@ public class CustomAudioDevice implements AudioDevice {
     private final CustomWebrtcAudioTrack webRtcAudioTrack;
     private final Context context;
 
-    private InputStream inputStream;
+    private FileInputStream inputStream;
 
     private DataInputStream dataInputStream;
 
