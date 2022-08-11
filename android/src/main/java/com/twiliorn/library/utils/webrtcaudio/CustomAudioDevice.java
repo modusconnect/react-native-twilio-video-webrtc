@@ -17,22 +17,17 @@ import androidx.annotation.NonNull;
 import com.twilio.video.AudioDevice;
 import com.twilio.video.AudioDeviceContext;
 import com.twilio.video.AudioFormat;
-
-import org.jetbrains.annotations.NotNull;
+import com.twiliorn.library.utils.SafePromise;
 
 import java.io.DataInputStream;
-import java.io.EOFException;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
 import tvi.webrtc.ThreadUtils;
-
-import com.twiliorn.library.utils.SafePromise;
 
 
 public class CustomAudioDevice implements AudioDevice {
@@ -216,7 +211,7 @@ public class CustomAudioDevice implements AudioDevice {
     }
 
 
-    private void processRemaining(@NotNull() ByteBuffer bb, int chunkSize) {
+    private void processRemaining(@NonNull ByteBuffer bb, int chunkSize) {
         bb.position(bb.limit()); // move at the end
         bb.limit(chunkSize); // get ready to pad with longs
         while (bb.position() < chunkSize) {

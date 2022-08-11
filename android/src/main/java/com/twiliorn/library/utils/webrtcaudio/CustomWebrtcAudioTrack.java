@@ -1,5 +1,6 @@
 package com.twiliorn.library.utils.webrtcaudio;
 
+import android.os.Build;
 import android.util.Log;
 import android.os.Process;
 import android.os.Build.VERSION;
@@ -9,9 +10,10 @@ import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioAttributes;
 import android.media.AudioAttributes.Builder;
-import android.annotation.TargetApi;
-import androidx.support.annotation.NonNull;
-import androidx.support.annotation.Nullable;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 
 import com.twilio.video.AudioDevice;
 import com.twilio.video.AudioDeviceContext;
@@ -70,7 +72,7 @@ class CustomWebrtcAudioTrack {
         return VERSION.SDK_INT >= 21 ? AudioAttributes.USAGE_VOICE_COMMUNICATION : AudioAttributes.USAGE_UNKNOWN;
     }
 
-    @TargetApi(21)
+    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
     private static AudioTrack createAudioTrackOnLollipopOrHigher(int sampleRateInHz, int channelConfig, int bufferSizeInBytes) {
         Log.d(TAG, "createAudioTrackOnLollipopOrHigher");
         int nativeOutputSampleRate = AudioTrack.getNativeOutputSampleRate(0);

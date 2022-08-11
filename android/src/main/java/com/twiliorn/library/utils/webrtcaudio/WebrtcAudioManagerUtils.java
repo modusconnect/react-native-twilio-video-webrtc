@@ -10,7 +10,6 @@ import android.media.AudioTrack;
 import android.os.Build;
 
 import kotlin.NotImplementedError;
-import tvi.webrtc.CalledByNative;
 import tvi.webrtc.Logging;
 
 class WebrtcAudioManagerUtils {
