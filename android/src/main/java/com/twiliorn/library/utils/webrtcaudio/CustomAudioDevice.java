@@ -1,17 +1,18 @@
-package com.twiliorn.library.utils;
+package com.twiliorn.library.utils.webrtcaudio;
+
 
 import android.content.Context;
 import android.media.AudioManager;
 import android.media.AudioRecord;
 import android.media.AudioTrack;
 import android.media.MediaRecorder;
-
 import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Process;
-
 import android.util.Log;
+
+import androidx.annotation.NonNull;
 
 import com.twilio.video.AudioDevice;
 import com.twilio.video.AudioDeviceContext;
@@ -28,6 +29,9 @@ import java.io.InputStream;
 import java.nio.ByteBuffer;
 
 import tvi.webrtc.ThreadUtils;
+
+import com.twiliorn.library.utils.SafePromise;
+
 
 public class CustomAudioDevice implements AudioDevice {
     public static final String TAG = CustomAudioDevice.class.getClass().getSimpleName();
@@ -46,9 +50,12 @@ public class CustomAudioDevice implements AudioDevice {
     private static final short BUFFER_SIZE_FACTOR = 2;
     private static final short WAV_FILE_HEADER_SIZE = 44;
 
+
     private static final int BUFFERS_PER_SECOND = 1000 / CALLBACK_BUFFER_SIZE_MS;
 
-    // Average number of callbacks per second.
+    private final CustomWebrtcAudioTrack webRtcAudioTrack;
+    private final Context context;
+
     private InputStream inputStream;
     private DataInputStream dataInputStream;
 
@@ -57,26 +64,27 @@ public class CustomAudioDevice implements AudioDevice {
 
     private ByteBuffer fileWriteByteBuffer;
     private ByteBuffer micWriteBuffer;
-    private ByteBuffer readByteBuffer;
 
     // Handlers and Threads
     private Handler capturerHandler;
     private HandlerThread capturerThread;
-    private Handler rendererHandler;
-    private HandlerThread rendererThread;
 
     //Contexts
-    private AudioDeviceContext renderingAudioDeviceContext;
     private AudioDeviceContext capturingAudioDeviceContext;
 
-    private AudioTrack audioTrack;
 
     private AudioRecord audioRecord;
 
-    private boolean keepAliveRendererRunnable;
     private boolean isFilePlaying;
 
     public CustomAudioDevice(Context context) {
+        AudioManager audioManager = (AudioManager)context.getSystemService(Context.AUDIO_SERVICE);
+        this.context = context;
+        this.webRtcAudioTrack = new CustomWebrtcAudioTrack(
+                context,
+                audioManager,
+                null,
+                null);
     }
 
     public void switchInputToFile(String path, SafePromise promise) {
@@ -109,7 +117,7 @@ public class CustomAudioDevice implements AudioDevice {
 
     @Override
     public AudioFormat getCapturerFormat() {
-        return new AudioFormat(AudioFormat.AUDIO_SAMPLE_RATE_48000,
+        return new AudioFormat(AudioFormat.AUDIO_SAMPLE_RATE_16000,
                 AudioFormat.AUDIO_SAMPLE_MONO);
     }
 
@@ -173,51 +181,32 @@ public class CustomAudioDevice implements AudioDevice {
 
     @Override
     public AudioFormat getRendererFormat() {
-        return new AudioFormat(AudioFormat.AUDIO_SAMPLE_RATE_44100,
+        AudioManager audioManager = WebrtcAudioManagerUtils.getAudioManager(this.context);
+        Log.d(TAG,
+                "getRendererFormat - recommended sampleRate: " +
+                WebrtcAudioManagerUtils.getSampleRate(audioManager) +
+                        " Actual: " + AudioFormat.AUDIO_SAMPLE_RATE_48000);
+        return new AudioFormat(AudioFormat.AUDIO_SAMPLE_RATE_48000,
                 AudioFormat.AUDIO_SAMPLE_MONO);
     }
 
     @Override
     public boolean onInitRenderer() {
-        AudioFormat rendererFormat = getRendererFormat();
-        int bytesPerFrame = rendererFormat.getChannelCount() * (BITS_PER_SAMPLE / 8);
-        readByteBuffer = ByteBuffer.allocateDirect(bytesPerFrame * (rendererFormat.getSampleRate() / BUFFERS_PER_SECOND));
-        int outChannelConfig = outChannelCountToConfiguration(rendererFormat.getChannelCount());
-        int inChannelConfig = inChannelCountToConfiguration(rendererFormat.getChannelCount());
-        int minBufferSize = AudioRecord.getMinBufferSize(rendererFormat.getSampleRate(), inChannelConfig, android.media.AudioFormat.ENCODING_PCM_16BIT);
-        audioTrack = new AudioTrack(AudioManager.STREAM_VOICE_CALL, rendererFormat.getSampleRate(), outChannelConfig,
-                android.media.AudioFormat.ENCODING_PCM_16BIT, minBufferSize, AudioTrack.MODE_STREAM);
-        keepAliveRendererRunnable = true;
-        return true;
+        AudioFormat audioFormat = getRendererFormat();
+        return this.webRtcAudioTrack.initRenderer(
+                audioFormat.getSampleRate(),
+                audioFormat.getChannelCount(),
+                BUFFER_SIZE_FACTOR);
     }
 
     @Override
-    public boolean onStartRendering(AudioDeviceContext audioDeviceContext) {
-        renderingAudioDeviceContext = audioDeviceContext;
-        // Create the renderer thread and start
-        rendererThread = new HandlerThread("RendererThread");
-        rendererThread.start();
-        // Create the capturer handler that processes the renderer Runnables.
-        rendererHandler = new Handler(rendererThread.getLooper());
-        rendererHandler.post(speakerRendererRunnable);
-        return true;
+    public boolean onStartRendering(@NonNull AudioDeviceContext audioDeviceContext) {
+        return this.webRtcAudioTrack.startRenderer(audioDeviceContext);
     }
 
     @Override
     public boolean onStopRendering() {
-        stopAudioTrack();
-        // Quit the rendererThread's looper to stop processing any further messages.
-        rendererThread.quit();
-        /*
-         * When onStopRendering is called, the AudioDevice API expects that at the completion
-         * of the callback the renderer has completely stopped. As a result, quit the renderer
-         * thread and explicitly wait for the thread to complete.
-         */
-        if (!ThreadUtils.joinUninterruptibly(rendererThread, THREAD_JOIN_TIMEOUT_MS)) {
-            Log.e(TAG, "Join of rendererThread timed out");
-            return false;
-        }
-        return true;
+        return this.webRtcAudioTrack.stopRenderer();
     }
 
 
@@ -295,36 +284,11 @@ public class CustomAudioDevice implements AudioDevice {
         }
     }
 
-
-    private int outChannelCountToConfiguration(int channels) {
-        if (channels == 1)
-            return android.media.AudioFormat.CHANNEL_OUT_MONO;
-        else
-            return android.media.AudioFormat.CHANNEL_OUT_STEREO;
-    }
-
     private int inChannelCountToConfiguration(int channels) {
         if (channels == 1)
             return android.media.AudioFormat.CHANNEL_IN_MONO;
         else
             return android.media.AudioFormat.CHANNEL_IN_STEREO;
-    }
-
-    private void releaseAudioResources() {
-        audioTrack.flush();
-        audioTrack.release();
-    }
-
-    private void stopAudioTrack() {
-        keepAliveRendererRunnable = false;
-        Log.d(TAG, "Remove any pending posts of speakerRendererRunnable that are in the message queue ");
-        rendererHandler.removeCallbacks(speakerRendererRunnable);
-        try {
-            audioTrack.stop();
-        } catch (IllegalStateException e) {
-            Log.e(TAG, "AudioTrack.stop failed: " + e.getMessage());
-        }
-        releaseAudioResources();
     }
 
     /*
@@ -395,39 +359,4 @@ public class CustomAudioDevice implements AudioDevice {
             }
         }
     };
-
-
-    /*
-     * This Runnable reads audio data from the callee perspective via AudioDevice.audioDeviceReadRenderData(...)
-     * and plays out the audio data using AudioTrack.write().
-     */
-    private Runnable speakerRendererRunnable = new Runnable() {
-        @Override
-        public void run() {
-            Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO);
-            try {
-                audioTrack.play();
-            } catch (IllegalStateException e) {
-                Log.e(TAG, "AudioTrack.play failed: " + e.getMessage());
-                releaseAudioResources();
-            }
-            while (keepAliveRendererRunnable) {
-                // Get 10ms of PCM data from the SDK. Audio data is written into the ByteBuffer provided.
-                AudioDevice.audioDeviceReadRenderData(renderingAudioDeviceContext, readByteBuffer);
-                int bytesWritten = write(audioTrack, readByteBuffer, readByteBuffer.capacity());
-                if (bytesWritten != readByteBuffer.capacity()) {
-                    Log.e(TAG, "AudioTrack.write failed: " + bytesWritten);
-                    if (bytesWritten == AudioTrack.ERROR_INVALID_OPERATION) {
-                        keepAliveRendererRunnable = false;
-                        break;
-                    }
-                }
-                // The byte buffer must be rewinded since byteBuffer.position() is increased at each
-                // call to AudioTrack.write(). If we don't do this, will fail the next  AudioTrack.write().
-                readByteBuffer.rewind();
-            }
-        }
-    };
-
-
 }

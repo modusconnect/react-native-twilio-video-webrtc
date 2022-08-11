@@ -103,9 +103,9 @@ import com.twilio.video.VideoDimensions;
 import com.twilio.video.VideoFormat;
 import com.twilio.video.VideoTrack;
 import com.twilio.video.Vp8Codec;
-import com.twiliorn.library.utils.CustomAudioDevice;
 import com.twiliorn.library.utils.SafePromise;
 import com.twiliorn.library.sinks.SnapshotVideoSink;
+import com.twiliorn.library.utils.webrtcaudio.CustomAudioDevice;
 
 import org.webrtc.voiceengine.WebRtcAudioManager;
 
