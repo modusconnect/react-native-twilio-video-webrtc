@@ -95,7 +95,7 @@ class CustomWebrtcAudioTrack {
     }
 
     public boolean initRenderer(int sampleRate, int channels, double bufferSizeFactor) {
-        Log.d(TAG, "initPlayout(sampleRate=" + sampleRate + ", channels=" + channels + ", bufferSizeFactor=" + bufferSizeFactor + ")");
+        Log.d(TAG, "initRenderer(sampleRate=" + sampleRate + ", channels=" + channels + ", bufferSizeFactor=" + bufferSizeFactor + ")");
         int bytesPerFrame = channels * (BITS_PER_SAMPLE / 8);
         this.byteBuffer = ByteBuffer.allocateDirect(bytesPerFrame * (sampleRate / BUFFERS_PER_SECOND));
         Log.d(TAG, "byteBuffer.capacity: " + this.byteBuffer.capacity());
@@ -164,6 +164,7 @@ class CustomWebrtcAudioTrack {
     public boolean stopRenderer() {
         Log.d(TAG, "stopRenderer");
         assertTrue(this.audioThread != null);
+
         this.logUnderrunCount();
         this.audioThread.stopThread();
         Log.d(TAG, "Stopping the AudioTrackThread...");

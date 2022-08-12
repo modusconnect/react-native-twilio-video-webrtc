@@ -31,7 +31,7 @@ import tvi.webrtc.ThreadUtils;
 
 
 public class CustomAudioDevice implements AudioDevice {
-    public static final String TAG = CustomAudioDevice.class.getClass().getSimpleName();
+    public static final String TAG = "CustomAudioDevice";
 
     // TIMEOUT for rendererThread and capturerThread to wait for successful call to join()
     private static final long THREAD_JOIN_TIMEOUT_MS = 2000;
@@ -193,6 +193,7 @@ public class CustomAudioDevice implements AudioDevice {
 
     @Override
     public boolean onInitRenderer() {
+        Log.d(TAG, "onInitRenderer invoked");
         AudioFormat audioFormat = getRendererFormat();
         return this.webRtcAudioTrack.initRenderer(
                 audioFormat.getSampleRate(),
@@ -202,11 +203,13 @@ public class CustomAudioDevice implements AudioDevice {
 
     @Override
     public boolean onStartRendering(@NonNull AudioDeviceContext audioDeviceContext) {
+        Log.d(TAG, "onStartRendering invoked");
         return this.webRtcAudioTrack.startRenderer(audioDeviceContext);
     }
 
     @Override
     public boolean onStopRendering() {
+        Log.d(TAG, "onStopRendering invoked");
         return this.webRtcAudioTrack.stopRenderer();
     }
 
