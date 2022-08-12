@@ -118,7 +118,7 @@ public class CustomAudioDevice implements AudioDevice {
 
     @Override
     public AudioFormat getCapturerFormat() {
-        return new AudioFormat(AudioFormat.AUDIO_SAMPLE_RATE_16000,
+        return new AudioFormat(AudioFormat.AUDIO_SAMPLE_RATE_48000,
                 AudioFormat.AUDIO_SAMPLE_MONO);
     }
 

@@ -162,7 +162,7 @@ class CustomWebrtcAudioTrack {
     }
 
     public boolean stopRenderer() {
-        Log.d(TAG, "stopPlayout");
+        Log.d(TAG, "stopRenderer");
         assertTrue(this.audioThread != null);
         this.logUnderrunCount();
         this.audioThread.stopThread();
