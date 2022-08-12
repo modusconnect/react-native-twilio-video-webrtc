@@ -241,19 +241,19 @@ public class CustomAudioDevice implements AudioDevice {
             }
 
             File cfile = new File(path);
-            if(cfile.exists() && cfile.canRead()) {
-                Log.d(TAG, "cFile invalid - exists "
-                        + (cfile.exists() ? "T" : "F")
-                        + " readable " + (cfile.canRead() ? "T" : "F")
-                );
-
-                Log.d(TAG, "cFile path:  " + path);
-                return false;
+            if (cfile.exists() && cfile.canRead()) {
+                inputStream = new FileInputStream(cfile);
+                return true;
             }
-            inputStream = new FileInputStream(cfile);
+
+            Log.d(TAG, "cFile invalid - exists "
+                    + (cfile.exists() ? "T" : "F")
+                    + " readable " + (cfile.canRead() ? "T" : "F")
+            );
+            Log.d(TAG, "cFile path:  " + path);
+
+            return false;
         } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
             e.printStackTrace();
         }
 
