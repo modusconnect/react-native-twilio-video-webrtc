@@ -96,6 +96,14 @@ class CustomWebrtcAudioTrack {
 
     public boolean initRenderer(int sampleRate, int channels, double bufferSizeFactor) {
         Log.d(TAG, "initRenderer(sampleRate=" + sampleRate + ", channels=" + channels + ", bufferSizeFactor=" + bufferSizeFactor + ")");
+
+        if(audioThread != null && audioThread.keepAlive) {
+            boolean retV = stopRenderer();
+            if(!retV) {
+                return false;
+            }
+        }
+
         int bytesPerFrame = channels * (BITS_PER_SAMPLE / 8);
         this.byteBuffer = ByteBuffer.allocateDirect(bytesPerFrame * (sampleRate / BUFFERS_PER_SECOND));
         Log.d(TAG, "byteBuffer.capacity: " + this.byteBuffer.capacity());
