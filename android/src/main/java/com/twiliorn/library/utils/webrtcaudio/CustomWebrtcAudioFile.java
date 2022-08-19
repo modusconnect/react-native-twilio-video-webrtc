@@ -13,10 +13,6 @@ import androidx.annotation.Nullable;
 import com.twilio.video.AudioDevice;
 import com.twilio.video.AudioDeviceContext;
 
-import org.webrtc.audio.JavaAudioDeviceModule;
-import org.webrtc.audio.JavaAudioDeviceModule.AudioRecordErrorCallback;
-import org.webrtc.audio.JavaAudioDeviceModule.AudioRecordStartErrorCode;
-import org.webrtc.audio.JavaAudioDeviceModule.AudioRecordStateCallback;
 import org.webrtc.voiceengine.WebRtcAudioUtils;
 
 import java.io.File;
@@ -26,7 +22,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
-import tvi.webrtc.Logging;
 import tvi.webrtc.ThreadUtils;
 
 public class CustomWebrtcAudioFile {
@@ -40,8 +35,8 @@ public class CustomWebrtcAudioFile {
     private static final int BUFFER_SIZE_FACTOR = 2;
 
     public static final int DEFAULT_AUDIO_FORMAT = android.media.AudioFormat.ENCODING_PCM_16BIT;
-    private static final int AUDIO_RECORD_START = 0;
-    private static final int AUDIO_RECORD_STOP = 1;
+    private static final int AUDIO_FILE_START = 0;
+    private static final int AUDIO_FILE_STOP = 1;
 
     private int bufferSize = 0;
 
@@ -53,9 +48,9 @@ public class CustomWebrtcAudioFile {
     @Nullable
     private AudioFileThread audioThread;
     @Nullable
-    private final AudioRecordErrorCallback errorCallback;
+    private final AudioFileErrorCallback errorCallback;
     @Nullable
-    private final AudioRecordStateCallback stateCallback;
+    private final AudioFileStateCallback stateCallback;
 
     //Contexts
     private AudioDeviceContext capturingAudioDeviceContext;
@@ -70,18 +65,18 @@ public class CustomWebrtcAudioFile {
             Context context,
             AudioManager audioManager,
             int audioFormat,
-            @Nullable AudioRecordErrorCallback errorCallback,
-            @Nullable AudioRecordStateCallback stateCallback) {
+            @Nullable AudioFileErrorCallback errorCallback,
+            @Nullable AudioFileStateCallback stateCallback) {
         this.context = context;
         this.audioManager = audioManager;
         this.audioFormat = audioFormat;
         this.errorCallback = errorCallback;
         this.stateCallback = stateCallback;
-        Logging.d(TAG, "ctor" + WebRtcAudioUtils.getThreadInfo());
+        Log.d(TAG, "ctor" + WebRtcAudioUtils.getThreadInfo());
     }
 
     public int init(int sampleRate, int channels, String path) {
-        Logging.d(TAG, "init(sampleRate=" + sampleRate + ", channels=" + channels + ")");
+        Log.d(TAG, "init(sampleRate=" + sampleRate + ", channels=" + channels + ")");
         if (this.fileInputStream != null) {
             this.reportWebRtcAudioFileInitError("Init called twice without stopFileReading.");
             return -1;
@@ -94,15 +89,15 @@ public class CustomWebrtcAudioFile {
                 this.reportWebRtcAudioFileInitError("ByteBuffer does not have backing array.");
                 return -1;
             } else {
-                Logging.d(TAG, "byteBuffer.capacity: " + this.byteBuffer.capacity());
+                Log.d(TAG, "byteBuffer.capacity: " + this.byteBuffer.capacity());
                 int channelConfig = this.channelCountToConfiguration(channels);
                 int minBufferSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, this.audioFormat);
                 if (minBufferSize != AudioRecord.ERROR && minBufferSize != AudioRecord.ERROR_BAD_VALUE) {
-                    Logging.d(TAG, "AudioRecord.getMinBufferSize: " + minBufferSize);
+                    Log.d(TAG, "AudioRecord.getMinBufferSize: " + minBufferSize);
                     int bufferSizeInBytes = Math.max(BUFFER_SIZE_FACTOR * minBufferSize, this.byteBuffer.capacity());
                     this.bufferSize = this.byteBuffer.capacity();
 
-                    Logging.d(TAG, "bufferSizeInBytes: " + bufferSizeInBytes);
+                    Log.d(TAG, "bufferSizeInBytes: " + bufferSizeInBytes);
 
                     fileInputStream = openFile(path);
                     if (this.fileInputStream != null) {
@@ -121,11 +116,9 @@ public class CustomWebrtcAudioFile {
     }
 
     public boolean startFileReading(@NonNull AudioDeviceContext audioDeviceContext) {
-        Logging.d(TAG, "startFileReading");
+        Log.d(TAG, "startFileReading");
         assertTrue(this.audioThread == null);
-        assertTrue(this.byteBuffer != null);
         assertTrue(this.fileInputStream != null);
-        assertTrue(this.byteBuffer.hasArray());
 
         this.capturingAudioDeviceContext = audioDeviceContext;
 
@@ -135,14 +128,14 @@ public class CustomWebrtcAudioFile {
     }
 
     public boolean stopFileReading() {
-        Logging.d(TAG, "stopFileReading");
+        Log.d(TAG, "stopFileReading");
         if(audioThread == null) {
             return true;
         }
 
         this.audioThread.stopThread();
         if (!ThreadUtils.joinUninterruptibly(this.audioThread, AUDIO_RECORD_THREAD_JOIN_TIMEOUT_MS)) {
-            Logging.e(TAG, "Join of AudioFileJavaThread timed out");
+            Log.e(TAG, "Join of AudioFileJavaThread timed out");
             WebrtcAudioUtils.logAudioState(TAG, this.context, this.audioManager);
         }
 
@@ -152,7 +145,7 @@ public class CustomWebrtcAudioFile {
     }
 
     private void releaseResources() {
-        Logging.d(TAG, "releaseResources");
+        Log.d(TAG, "releaseResources");
         if (this.fileInputStream != null) {
             try {
                 this.fileInputStream.close();
@@ -164,38 +157,30 @@ public class CustomWebrtcAudioFile {
     }
 
     private void reportWebRtcAudioFileInitError(String errorMessage) {
-        Logging.e(TAG, "Init recording error: " + errorMessage);
+        Log.e(TAG, "Init file read error: " + errorMessage);
         WebrtcAudioUtils.logAudioState(TAG, this.context, this.audioManager);
         if (this.errorCallback != null) {
-            this.errorCallback.onWebRtcAudioRecordInitError(errorMessage);
+            this.errorCallback.onWebRtcAudioFileInitError(errorMessage);
         }
     }
 
-    private void reportWebRtcAudioRecordStartError(AudioRecordStartErrorCode errorCode, String errorMessage) {
-        Logging.e(TAG, "Start recording error: " + errorCode + ". " + errorMessage);
+    private void reportWebRtcAudioFileError(String errorMessage) {
+        Log.e(TAG, "Run-time file read error: " + errorMessage);
         WebrtcAudioUtils.logAudioState(TAG, this.context, this.audioManager);
         if (this.errorCallback != null) {
-            this.errorCallback.onWebRtcAudioRecordStartError(errorCode, errorMessage);
+            this.errorCallback.onWebRtcAudioFileError(errorMessage);
         }
     }
 
-    private void reportWebRtcAudioRecordError(String errorMessage) {
-        Logging.e(TAG, "Run-time recording error: " + errorMessage);
-        WebrtcAudioUtils.logAudioState(TAG, this.context, this.audioManager);
-        if (this.errorCallback != null) {
-            this.errorCallback.onWebRtcAudioRecordError(errorMessage);
-        }
-    }
-
-    private void doAudioRecordStateCallback(int audioState) {
-        Logging.d(TAG, "doAudioRecordStateCallback: " + audioStateToString(audioState));
+    private void doAudioFileStateCallback(int audioState) {
+        Log.d(TAG, "doAudioRecordStateCallback: " + audioStateToString(audioState));
         if (this.stateCallback != null) {
-            if (audioState == AUDIO_RECORD_START) {
-                this.stateCallback.onWebRtcAudioRecordStart();
-            } else if (audioState == AUDIO_RECORD_STOP) {
-                this.stateCallback.onWebRtcAudioRecordStop();
+            if (audioState == AUDIO_FILE_START) {
+                this.stateCallback.onWebRtcAudioFileStart();
+            } else if (audioState == AUDIO_FILE_STOP) {
+                this.stateCallback.onWebRtcAudioFileStop();
             } else {
-                Logging.e(TAG, "Invalid audio state");
+                Log.e(TAG, "Invalid audio state");
             }
         }
     }
@@ -224,48 +209,49 @@ public class CustomWebrtcAudioFile {
 
         public void run() {
             Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO);
-            Logging.d(TAG, "AudioFileThread" + WebrtcAudioUtils.getThreadInfo());
+            Log.d(TAG, "AudioFileThread" + WebrtcAudioUtils.getThreadInfo());
             assertTrue(fileInputStream != null);
             assertTrue(byteBuffer != null);
-            doAudioRecordStateCallback(AUDIO_RECORD_START);
+            doAudioFileStateCallback(AUDIO_FILE_START);
 
             while(this.keepAlive) {
                 flush(byteBuffer);
 
-                boolean retV = false;
                 try {
-                    retV = readFully(
+                    if (!readFully(
                             fileInputStream,
                             byteBuffer.array(),
                             byteBuffer.arrayOffset(),
-                            bufferSize);
+                            bufferSize)) {
+                        String errorMessage = "readFully failed - stopping thread";
+                        Log.e(TAG, errorMessage);
+                        this.keepAlive = false;
+                        reportWebRtcAudioFileError(errorMessage);
+                        continue;
+                    }
+
+                    AudioDevice.audioDeviceWriteCaptureData(
+                            capturingAudioDeviceContext,
+                            byteBuffer
+                    );
                 } catch (IOException e) {
-                    Log.e(TAG,  "readFully failed: " + e.getMessage());
-                }
-
-                if(!retV) {
-                    String errorMessage = "readFully failed: ";
-                    Logging.e(TAG, errorMessage);
+                    String errorMessage = "readFully failed " + e.getMessage();
+                    Log.e(TAG, errorMessage);
                     this.keepAlive = false;
-                    reportWebRtcAudioRecordError(errorMessage);
+                    reportWebRtcAudioFileError(errorMessage);
                 }
-
-                AudioDevice.audioDeviceWriteCaptureData(
-                        capturingAudioDeviceContext,
-                        byteBuffer
-                );
             }
 
             try {
-                doAudioRecordStateCallback(AUDIO_RECORD_STOP);
-            } catch (IllegalStateException var5) {
-                Logging.e(TAG, "readFully failed: " + var5.getMessage());
+                doAudioFileStateCallback(AUDIO_FILE_STOP);
+            } catch (IllegalStateException e) {
+                Log.e(TAG, "doAudioFileStateCallback failed: " + e.getMessage());
             }
 
         }
 
         public void stopThread() {
-            Logging.d(TAG, "stopThread");
+            Log.d(TAG, "stopThread");
             this.keepAlive = false;
         }
     }
@@ -321,8 +307,6 @@ public class CustomWebrtcAudioFile {
 
     public interface AudioFileErrorCallback {
         void onWebRtcAudioFileInitError(String var1);
-
-        void onWebRtcAudioFileStartError(JavaAudioDeviceModule.AudioRecordStartErrorCode var1, String var2);
 
         void onWebRtcAudioFileError(String var1);
     }
