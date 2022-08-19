@@ -35,27 +35,29 @@ class CustomWebrtcAudioTrack {
 
     private static final int CALLBACK_BUFFER_SIZE_MS = 10;
     private static final int BUFFERS_PER_SECOND = 1000 / CALLBACK_BUFFER_SIZE_MS;
-    ;
+    // Default audio data format is PCM 16 bit per sample. Guaranteed to be supported by all devices.
+    private static final short BITS_PER_SAMPLE = 16;
+    @Nullable
+    private ByteBuffer byteBuffer;
+
     private static final int DEFAULT_USAGE = getDefaultUsageAttribute();
     private static final int AUDIO_TRACK_START = 0;
     private static final int AUDIO_TRACK_STOP = 1;
 
-    // Default audio data format is PCM 16 bit per sample. Guaranteed to be supported by all devices.
-    private static final short BITS_PER_SAMPLE = 16;
-
-
-    private final Context context;
+    // Services
     private final AudioManager audioManager;
     @Nullable
     private final AudioTrackErrorCallback errorCallback;
     @Nullable
     private final AudioTrackStateCallback stateCallback;
 
-    private ByteBuffer byteBuffer;
-
+    //contexts
     private AudioDeviceContext audioDeviceContext;
+    private final Context context;
+
     @Nullable
     private AudioTrack audioTrack;
+
     @Nullable
     private AudioTrackThread audioThread;
     private volatile boolean speakerMute;
@@ -69,7 +71,7 @@ class CustomWebrtcAudioTrack {
     }
 
     private static int getDefaultUsageAttribute() {
-        return VERSION.SDK_INT >= 21 ? AudioAttributes.USAGE_VOICE_COMMUNICATION : AudioAttributes.USAGE_UNKNOWN;
+        return VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP ? AudioAttributes.USAGE_VOICE_COMMUNICATION : 0;
     }
 
     @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
@@ -334,6 +336,7 @@ class CustomWebrtcAudioTrack {
             assertTrue(audioTrack != null);
             assertTrue(audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING);
             assertTrue(audioDeviceContext != null);
+            assertTrue(byteBuffer != null);
 
             doAudioTrackStateCallback(AUDIO_TRACK_START);
             for (int sizeInBytes = byteBuffer.capacity(); this.keepAlive; byteBuffer.rewind()) {

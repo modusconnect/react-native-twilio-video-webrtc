@@ -24,27 +24,30 @@ import java.util.Arrays;
 
 import tvi.webrtc.ThreadUtils;
 
+// This is a re-implementation of the code from twilio's sdk. Allowing us to re-use their audio device
+// implementation for recording audio data from a file into their media engine
+
 public class CustomWebrtcAudioFile {
     private static final String TAG = "CustomWebrtcAudioFile";
-    private static final int CALLBACK_BUFFER_SIZE_MS = 10;
+
     private static final long AUDIO_RECORD_THREAD_JOIN_TIMEOUT_MS = 2000L;
 
-
+    private static final int CALLBACK_BUFFER_SIZE_MS = 10;
     private static final short BITS_PER_SAMPLE = 16;
     private static final int BUFFERS_PER_SECOND = 1000 / CALLBACK_BUFFER_SIZE_MS;
     private static final int BUFFER_SIZE_FACTOR = 2;
+    private int bufferSize = 0;
+    @Nullable
+    private ByteBuffer byteBuffer;
 
     public static final int DEFAULT_AUDIO_FORMAT = android.media.AudioFormat.ENCODING_PCM_16BIT;
     private static final int AUDIO_FILE_START = 0;
     private static final int AUDIO_FILE_STOP = 1;
 
-    private int bufferSize = 0;
-
-    private final Context context;
+    //Services
     private final AudioManager audioManager;
+
     private final int audioFormat;
-    @Nullable
-    private ByteBuffer byteBuffer;
     @Nullable
     private AudioFileThread audioThread;
     @Nullable
@@ -54,6 +57,9 @@ public class CustomWebrtcAudioFile {
 
     //Contexts
     private AudioDeviceContext capturingAudioDeviceContext;
+    private final Context context;
+
+    //Streams
     private FileInputStream fileInputStream;
 
 
