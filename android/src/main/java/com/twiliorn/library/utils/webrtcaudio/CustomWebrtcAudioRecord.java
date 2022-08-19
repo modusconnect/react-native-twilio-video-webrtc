@@ -80,51 +80,54 @@ public class CustomWebrtcAudioRecord {
         Logging.d(TAG, "initRecording(sampleRate=" + sampleRate + ", channels=" + channels + ")");
         if (this.audioRecord != null) {
             this.reportWebRtcAudioRecordInitError("InitRecording called twice without StopRecording.");
+            if(!stopRecording()) {
+                this.reportWebRtcAudioRecordInitError("InitRecording was unable to stop recording");
+                return -1;
+            }
+        }
+
+        int bytesPerFrame = channels * (BITS_PER_SAMPLE / 8);
+
+        int framesPerBuffer = sampleRate / BUFFERS_PER_SECOND;
+        this.byteBuffer = ByteBuffer.allocateDirect(bytesPerFrame * framesPerBuffer);
+        if (!this.byteBuffer.hasArray()) {
+            this.reportWebRtcAudioRecordInitError("ByteBuffer does not have backing array.");
             return -1;
         } else {
-            int bytesPerFrame = channels * (BITS_PER_SAMPLE / 8);
+            Logging.d(TAG, "byteBuffer.capacity: " + this.byteBuffer.capacity());
+            this.emptyBytes = new byte[this.byteBuffer.capacity()];
+            int channelConfig = this.channelCountToConfiguration(channels);
+            int minBufferSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, this.audioFormat);
+            if (minBufferSize != AudioRecord.ERROR && minBufferSize != AudioRecord.ERROR_BAD_VALUE) {
+                Logging.d(TAG, "AudioRecord.getMinBufferSize: " + minBufferSize);
+                int bufferSizeInBytes = Math.max(BUFFER_SIZE_FACTOR * minBufferSize, this.byteBuffer.capacity());
+                Logging.d(TAG, "bufferSizeInBytes: " + bufferSizeInBytes);
 
-            int framesPerBuffer = sampleRate / BUFFERS_PER_SECOND;
-            this.byteBuffer = ByteBuffer.allocateDirect(bytesPerFrame * framesPerBuffer);
-            if (!this.byteBuffer.hasArray()) {
-                this.reportWebRtcAudioRecordInitError("ByteBuffer does not have backing array.");
-                return -1;
-            } else {
-                Logging.d(TAG, "byteBuffer.capacity: " + this.byteBuffer.capacity());
-                this.emptyBytes = new byte[this.byteBuffer.capacity()];
-                int channelConfig = this.channelCountToConfiguration(channels);
-                int minBufferSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, this.audioFormat);
-                if (minBufferSize != AudioRecord.ERROR && minBufferSize != AudioRecord.ERROR_BAD_VALUE) {
-                    Logging.d(TAG, "AudioRecord.getMinBufferSize: " + minBufferSize);
-                    int bufferSizeInBytes = Math.max(BUFFER_SIZE_FACTOR * minBufferSize, this.byteBuffer.capacity());
-                    Logging.d(TAG, "bufferSizeInBytes: " + bufferSizeInBytes);
-
-                    try {
-                        if (Build.VERSION.SDK_INT >= 23) {
-                            this.audioRecord = createAudioRecordOnMOrHigher(this.audioSource, sampleRate, channelConfig, this.audioFormat, bufferSizeInBytes);
-                        } else {
-                            this.audioRecord = createAudioRecordOnLowerThanM(this.audioSource, sampleRate, channelConfig, this.audioFormat, bufferSizeInBytes);
-                        }
-                    } catch (UnsupportedOperationException | IllegalArgumentException var9) {
-                        this.reportWebRtcAudioRecordInitError(var9.getMessage());
-                        this.releaseAudioResources();
-                        return -1;
-                    }
-
-                    if (this.audioRecord != null && this.audioRecord.getState() == 1) {
-                        this.logMainParameters();
-                        this.logMainParametersExtended();
-
-                        return framesPerBuffer;
+                try {
+                    if (Build.VERSION.SDK_INT >= 23) {
+                        this.audioRecord = createAudioRecordOnMOrHigher(this.audioSource, sampleRate, channelConfig, this.audioFormat, bufferSizeInBytes);
                     } else {
-                        this.reportWebRtcAudioRecordInitError("Creation or initialization of audio recorder failed.");
-                        this.releaseAudioResources();
-                        return -1;
+                        this.audioRecord = createAudioRecordOnLowerThanM(this.audioSource, sampleRate, channelConfig, this.audioFormat, bufferSizeInBytes);
                     }
-                } else {
-                    this.reportWebRtcAudioRecordInitError("AudioRecord.getMinBufferSize failed: " + minBufferSize);
+                } catch (UnsupportedOperationException | IllegalArgumentException var9) {
+                    this.reportWebRtcAudioRecordInitError(var9.getMessage());
+                    this.releaseAudioResources();
                     return -1;
                 }
+
+                if (this.audioRecord != null && this.audioRecord.getState() == 1) {
+                    this.logMainParameters();
+                    this.logMainParametersExtended();
+
+                    return framesPerBuffer;
+                } else {
+                    this.reportWebRtcAudioRecordInitError("Creation or initialization of audio recorder failed.");
+                    this.releaseAudioResources();
+                    return -1;
+                }
+            } else {
+                this.reportWebRtcAudioRecordInitError("AudioRecord.getMinBufferSize failed: " + minBufferSize);
+                return -1;
             }
         }
     }

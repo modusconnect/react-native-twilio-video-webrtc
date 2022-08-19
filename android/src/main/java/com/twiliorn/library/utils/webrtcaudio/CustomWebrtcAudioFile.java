@@ -124,8 +124,8 @@ public class CustomWebrtcAudioFile {
         Logging.d(TAG, "startFileReading");
         assertTrue(this.audioThread == null);
         assertTrue(this.byteBuffer != null);
-        assertTrue(this.fileInputStream == null);
-        assertTrue(!this.byteBuffer.hasArray());
+        assertTrue(this.fileInputStream != null);
+        assertTrue(this.byteBuffer.hasArray());
 
         this.capturingAudioDeviceContext = audioDeviceContext;
 
@@ -291,7 +291,7 @@ public class CustomWebrtcAudioFile {
 
     private static FileInputStream openFile(String path) {
         File file = new File(path);
-        if(!file.canRead() || !file.exists() || !file.isFile()) {
+        if(!file.canRead() || !file.exists()) {
             logFileParameters(file);
             return null;
         }
@@ -304,10 +304,13 @@ public class CustomWebrtcAudioFile {
     }
 
     private static void logFileParameters(File file) {
-        Logging.d(TAG,
-                "file exists: " + (file.exists() ? " true" : " no")
-                        + ", can read: " + (file.canRead() ? " true" : " no")
-                        + ", is file: " + (file.isFile() ? " true" : " no"));
+        Log.d(TAG,"logFileParameters" );
+        Log.d(TAG,
+                "   file" + file.getName()
+                        + "exists: " + (file.exists() ? " true" : " no")
+                        + ", can read: " + (file.canRead() ? " true" : " no"));
+        Log.d(TAG,
+                "   file full path: " + file.getAbsolutePath());
     }
 
     private static void assertTrue(boolean condition) {
