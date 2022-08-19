@@ -67,13 +67,13 @@ public class CustomWebrtcAudioRecord {
     }
 
     public CustomWebrtcAudioRecord(Context context, AudioManager audioManager, int audioSource, int audioFormat, @Nullable AudioRecordErrorCallback errorCallback, @Nullable AudioRecordStateCallback stateCallback) {
-            this.context = context;
-            this.audioManager = audioManager;
-            this.audioSource = audioSource;
-            this.audioFormat = audioFormat;
-            this.errorCallback = errorCallback;
-            this.stateCallback = stateCallback;
-            Logging.d(TAG, "ctor" + WebRtcAudioUtils.getThreadInfo());
+        this.context = context;
+        this.audioManager = audioManager;
+        this.audioSource = audioSource;
+        this.audioFormat = audioFormat;
+        this.errorCallback = errorCallback;
+        this.stateCallback = stateCallback;
+        Logging.d(TAG, "ctor" + WebRtcAudioUtils.getThreadInfo());
     }
 
     public int initRecording(int sampleRate, int channels) {
