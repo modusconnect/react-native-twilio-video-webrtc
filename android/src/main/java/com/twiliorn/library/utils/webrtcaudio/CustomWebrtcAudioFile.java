@@ -1,16 +1,14 @@
 package com.twiliorn.library.utils.webrtcaudio;
 
-import android.annotation.TargetApi;
 import android.content.Context;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioRecord;
-import android.media.MediaRecorder;
 import android.os.Process;
-import android.support.annotation.Nullable;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import com.twilio.video.AudioDevice;
 import com.twilio.video.AudioDeviceContext;
@@ -34,13 +32,14 @@ import tvi.webrtc.ThreadUtils;
 public class CustomWebrtcAudioFile {
     private static final String TAG = "CustomWebrtcAudioFile";
     private static final int CALLBACK_BUFFER_SIZE_MS = 10;
+    private static final long AUDIO_RECORD_THREAD_JOIN_TIMEOUT_MS = 2000L;
+
+
     private static final short BITS_PER_SAMPLE = 16;
     private static final int BUFFERS_PER_SECOND = 1000 / CALLBACK_BUFFER_SIZE_MS;
-    ;
     private static final int BUFFER_SIZE_FACTOR = 2;
-    private static final long AUDIO_RECORD_THREAD_JOIN_TIMEOUT_MS = 2000L;
+
     public static final int DEFAULT_AUDIO_FORMAT = android.media.AudioFormat.ENCODING_PCM_16BIT;
-    private static final int DEFAULT_AUDIO_SOURCE = MediaRecorder.AudioSource.VOICE_COMMUNICATION;
     private static final int AUDIO_RECORD_START = 0;
     private static final int AUDIO_RECORD_STOP = 1;
 
@@ -49,7 +48,6 @@ public class CustomWebrtcAudioFile {
     private final Context context;
     private final AudioManager audioManager;
     private final int audioFormat;
-    private final int audioSource;
     @Nullable
     private ByteBuffer byteBuffer;
     @Nullable
@@ -65,20 +63,18 @@ public class CustomWebrtcAudioFile {
 
 
     CustomWebrtcAudioFile(Context context, AudioManager audioManager) {
-        this(context, audioManager, DEFAULT_AUDIO_SOURCE, DEFAULT_AUDIO_FORMAT, null, null);
+        this(context, audioManager, DEFAULT_AUDIO_FORMAT, null, null);
     }
 
     public CustomWebrtcAudioFile(
             Context context,
             AudioManager audioManager,
-            int audioSource,
             int audioFormat,
             @Nullable AudioRecordErrorCallback errorCallback,
             @Nullable AudioRecordStateCallback stateCallback) {
             this.context = context;
             this.audioManager = audioManager;
             this.audioFormat = audioFormat;
-            this.audioSource = audioSource;
             this.errorCallback = errorCallback;
             this.stateCallback = stateCallback;
             Logging.d(TAG, "ctor" + WebRtcAudioUtils.getThreadInfo());
@@ -104,6 +100,8 @@ public class CustomWebrtcAudioFile {
                 if (minBufferSize != AudioRecord.ERROR && minBufferSize != AudioRecord.ERROR_BAD_VALUE) {
                     Logging.d(TAG, "AudioRecord.getMinBufferSize: " + minBufferSize);
                     int bufferSizeInBytes = Math.max(BUFFER_SIZE_FACTOR * minBufferSize, this.byteBuffer.capacity());
+                    this.bufferSize = this.byteBuffer.capacity();
+
                     Logging.d(TAG, "bufferSizeInBytes: " + bufferSizeInBytes);
 
                     fileInputStream = openFile(path);
@@ -125,6 +123,7 @@ public class CustomWebrtcAudioFile {
     public boolean startFileReading(@NonNull AudioDeviceContext audioDeviceContext) {
         Logging.d(TAG, "startFileReading");
         assertTrue(this.audioThread == null);
+        assertTrue(this.byteBuffer != null);
         assertTrue(this.fileInputStream == null);
         assertTrue(!this.byteBuffer.hasArray());
 
@@ -137,7 +136,7 @@ public class CustomWebrtcAudioFile {
 
     public boolean stopFileReading() {
         Logging.d(TAG, "stopFileReading");
-        if(audioThread != null) {
+        if(audioThread == null) {
             return true;
         }
 
@@ -227,6 +226,7 @@ public class CustomWebrtcAudioFile {
             Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO);
             Logging.d(TAG, "AudioFileThread" + WebrtcAudioUtils.getThreadInfo());
             assertTrue(fileInputStream != null);
+            assertTrue(byteBuffer != null);
             doAudioRecordStateCallback(AUDIO_RECORD_START);
 
             while(this.keepAlive) {
@@ -274,7 +274,7 @@ public class CustomWebrtcAudioFile {
         Arrays.fill(bb.array(), (byte) 0);
     }
 
-    private boolean readFully(FileInputStream in, byte b[], int off, int len) throws IOException {
+    private boolean readFully(FileInputStream in, byte[] b, int off, int len) throws IOException {
         if (len < 0)
             throw new IndexOutOfBoundsException();
         int n = 0;
@@ -296,8 +296,7 @@ public class CustomWebrtcAudioFile {
             return null;
         }
         try {
-            FileInputStream stream = new FileInputStream(file);
-            return stream;
+            return new FileInputStream(file);
         } catch (FileNotFoundException e) {
             Log.e(TAG, e.getMessage());
             return null;

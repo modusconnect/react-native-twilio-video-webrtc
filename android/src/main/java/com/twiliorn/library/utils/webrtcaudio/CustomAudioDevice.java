@@ -3,13 +3,6 @@ package com.twiliorn.library.utils.webrtcaudio;
 
 import android.content.Context;
 import android.media.AudioManager;
-import android.media.AudioRecord;
-import android.media.AudioTrack;
-import android.media.MediaRecorder;
-import android.os.Build;
-import android.os.Handler;
-import android.os.HandlerThread;
-import android.os.Process;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -18,16 +11,6 @@ import com.twilio.video.AudioDevice;
 import com.twilio.video.AudioDeviceContext;
 import com.twilio.video.AudioFormat;
 import com.twiliorn.library.utils.SafePromise;
-
-import java.io.DataInputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.util.Arrays;
-
-import tvi.webrtc.ThreadUtils;
 
 
 public class CustomAudioDevice implements AudioDevice {
@@ -115,7 +98,7 @@ public class CustomAudioDevice implements AudioDevice {
         AudioFormat format = getCapturerFormat();
         int retV = this.webRtcAudioRecord.initRecording(
                 format.getSampleRate(),
-                format.getSampleRate());
+                format.getChannelCount());
         if(retV < 0) {
             return false;
         }
