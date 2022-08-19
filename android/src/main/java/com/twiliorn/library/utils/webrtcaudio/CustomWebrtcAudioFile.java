@@ -72,12 +72,12 @@ public class CustomWebrtcAudioFile {
             int audioFormat,
             @Nullable AudioRecordErrorCallback errorCallback,
             @Nullable AudioRecordStateCallback stateCallback) {
-            this.context = context;
-            this.audioManager = audioManager;
-            this.audioFormat = audioFormat;
-            this.errorCallback = errorCallback;
-            this.stateCallback = stateCallback;
-            Logging.d(TAG, "ctor" + WebRtcAudioUtils.getThreadInfo());
+        this.context = context;
+        this.audioManager = audioManager;
+        this.audioFormat = audioFormat;
+        this.errorCallback = errorCallback;
+        this.stateCallback = stateCallback;
+        Logging.d(TAG, "ctor" + WebRtcAudioUtils.getThreadInfo());
     }
 
     public int init(int sampleRate, int channels, String path) {
