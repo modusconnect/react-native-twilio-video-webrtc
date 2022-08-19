@@ -46,44 +46,46 @@ public class CustomAudioDevice implements AudioDevice {
     public void switchInputToFile(String path, SafePromise promise) {
         AudioFormat format = getCapturerFormat();
 
-        if (isFilePlaying) {
-            isFilePlaying = false;
-            this.webRtcAudioFile.stopFileReading();
-        } else {
-            this.webRtcAudioRecord.stopRecording();
-        }
+        this.stopRecording(promise, false);
 
-        this.webRtcAudioFile.init(
+        int didInit = this.webRtcAudioFile.init(
                 format.getSampleRate(),
                 format.getChannelCount(),
                 path);
 
+        if(didInit < 0) {
+            promise.reject(String.valueOf(didInit), "Unable to init webRtcAudioFile");
+            return;
+        }
+
         isFilePlaying = true;
 
-        this.webRtcAudioFile.startFileReading(this.capturingAudioDeviceContext);
+        boolean didStart = this.webRtcAudioFile.startFileReading(this.capturingAudioDeviceContext);
+        if(!didStart) {
+            promise.reject("-2", "Unable to start webRtcAudioFile");
+        }
 
         promise.resolve(null);
     }
 
     public void switchInputToMic(SafePromise promise) {
         AudioFormat format = getCapturerFormat();
+        this.stopRecording(promise, false);
 
-        if (isFilePlaying) {
-            isFilePlaying = false;
-            this.webRtcAudioFile.stopFileReading();
-        } else {
-            this.webRtcAudioRecord.stopRecording();
-        }
-
-        this.webRtcAudioRecord.initRecording(
+        int didInit = this.webRtcAudioRecord.initRecording(
                 format.getSampleRate(),
                 format.getChannelCount());
+        if(didInit < 0) {
+            promise.reject(String.valueOf(didInit), "Unable to init mic recording");
+            return;
+        }
 
+        if(!this.webRtcAudioRecord.startRecording(this.capturingAudioDeviceContext)) {
+            promise.reject("-2", "Unable to start mic recording");
 
-        this.webRtcAudioRecord.startRecording(this.capturingAudioDeviceContext);
+        }
 
         promise.resolve(null);
-
     }
 
 
@@ -129,7 +131,7 @@ public class CustomAudioDevice implements AudioDevice {
         AudioManager audioManager = WebrtcAudioManagerUtils.getAudioManager(this.context);
         Log.d(TAG,
                 "getRendererFormat - recommended sampleRate: " +
-                WebrtcAudioManagerUtils.getSampleRate(audioManager) +
+                        WebrtcAudioManagerUtils.getSampleRate(audioManager) +
                         " Actual: " + AudioFormat.AUDIO_SAMPLE_RATE_48000);
         return new AudioFormat(AudioFormat.AUDIO_SAMPLE_RATE_48000,
                 AudioFormat.AUDIO_SAMPLE_MONO);
@@ -158,18 +160,25 @@ public class CustomAudioDevice implements AudioDevice {
     }
 
     public void stopRecording(SafePromise promise) {
+        this.stopRecording(promise, true);
+    }
+
+    public void stopRecording(SafePromise promise, boolean shouldResolve) {
         Log.d(TAG, "stopRecording");
-        boolean retV = false;
         if (isFilePlaying) {
             isFilePlaying = false;
-            retV = this.webRtcAudioFile.stopFileReading();
+            if(!this.webRtcAudioFile.stopFileReading()) {
+                promise.reject("-1", "Unable to stop file reading");
+                return;
+            }
         } else {
-            retV = this.webRtcAudioRecord.stopRecording();
+            if(!this.webRtcAudioRecord.stopRecording()) {
+                promise.reject("-1", "Unable to stop mic recording");
+                return;
+            }
         }
 
-        if(!retV) {
-            promise.reject("-1", "Unable to stop recording");
-        }
-        promise.resolve(null);
+        if(shouldResolve)
+            promise.resolve(null);
     }
 }
